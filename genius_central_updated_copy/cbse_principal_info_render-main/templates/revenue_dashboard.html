@@ -1,0 +1,962 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revenue Intelligence Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --bg:#f5f7fb;
+  --surface:#fff;
+  --ink:#172033;
+  --muted:#7c879b;
+  --line:#e9edf4;
+  --blue:#3769df;
+  --blue-light:#edf2ff;
+  --green:#159b72;
+  --orange:#e59a43;
+  --red:#dc626c;
+  --shadow:0 4px 24px rgba(24,39,75,.045);
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif}
+button,input,select{font:inherit}
+
+.app{display:flex;min-height:100vh}
+
+.sidebar{
+  width:245px;background:#fff;border-right:1px solid var(--line);
+  padding:28px 18px;flex-shrink:0
+}
+
+.brand{display:flex;align-items:center;gap:11px;padding:0 10px;margin-bottom:44px}
+.brand-icon{
+  width:38px;height:38px;border-radius:12px;background:#1d2c4e;
+  color:white;display:grid;place-items:center;font-size:20px
+}
+.brand-name{font-family:Manrope,sans-serif;font-size:15px;font-weight:800;line-height:1.25}
+.brand-name small{display:block;color:var(--muted);font-size:10px;font-weight:500;margin-top:3px}
+
+.nav-label{color:#a0a9b9;font-size:10px;font-weight:700;letter-spacing:1.3px;padding:0 12px;margin-bottom:12px}
+.nav-btn{
+  display:flex;align-items:center;width:100%;gap:12px;padding:13px 14px;
+  border:0;background:transparent;border-radius:10px;color:#738097;
+  text-align:left;cursor:pointer;margin-bottom:5px;font-size:13px;transition:.2s
+}
+.nav-btn:hover{background:#f6f8fc}
+.nav-btn.active{color:var(--blue);background:var(--blue-light);font-weight:700}
+.nav-icon{font-size:17px;width:20px}
+.sidebar-bottom{margin-top:45px;padding:15px;border-radius:12px;background:#f7f8fb;font-size:11px;color:var(--muted);line-height:1.7}
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px}
+
+.main{flex:1;min-width:0;padding:30px 36px 50px;max-width:1800px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:30px}
+.eyebrow{color:var(--muted);font-size:11px;margin-bottom:7px;font-weight:600;letter-spacing:.5px}
+h1{font-family:Manrope,sans-serif;font-size:26px;margin:0;font-weight:800;letter-spacing:-.8px}
+.subtitle{font-size:12px;color:var(--muted);margin-top:7px}
+
+.top-actions{display:flex;gap:10px;align-items:center}
+.btn{
+  border:1px solid var(--line);background:#fff;border-radius:9px;
+  padding:10px 15px;font-size:12px;font-weight:600;cursor:pointer;color:var(--ink)
+}
+.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn:hover{opacity:.85}
+
+.page{display:none}
+.page.active{display:block}
+
+.filters{
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:18px;margin-bottom:20px;box-shadow:var(--shadow)
+}
+.filter-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.filter-title{font-size:13px;font-weight:700}
+.filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.field label{display:block;font-size:10px;color:var(--muted);font-weight:700;margin-bottom:7px}
+.field input,.field select{
+  width:100%;height:39px;border:1px solid var(--line);border-radius:8px;
+  background:#fff;padding:0 11px;font-size:12px;color:var(--ink);outline:none
+}
+.field input:focus,.field select:focus{border-color:var(--blue)}
+
+.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin-bottom:20px}
+.metric{
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:19px 20px;box-shadow:var(--shadow);min-width:0
+}
+.metric-top{display:flex;align-items:center;justify-content:space-between}
+.metric-label{font-size:11px;color:var(--muted);font-weight:600}
+.metric-icon{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--blue-light);color:var(--blue);font-size:16px}
+.metric-value{font-family:Manrope,sans-serif;font-size:25px;font-weight:800;letter-spacing:-.8px;margin-top:15px;overflow-wrap:anywhere}
+.metric-foot{font-size:10px;color:var(--muted);margin-top:5px}
+
+.panel{
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:20px;box-shadow:var(--shadow);min-width:0
+}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
+.panel-title{font-family:Manrope,sans-serif;font-size:14px;font-weight:800}
+.panel-sub{font-size:10px;color:var(--muted);margin-top:4px}
+.chart-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin-bottom:20px}
+.chart-wrap{height:280px;position:relative}
+
+.table-panel{margin-bottom:20px;overflow:hidden}
+.table-scroll{overflow:auto;max-height:600px}
+table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap}
+thead{position:sticky;top:0;z-index:2;background:#f8f9fc}
+th{text-align:left;padding:13px 15px;color:#778298;font-size:10px;font-weight:700;border-bottom:1px solid var(--line)}
+td{padding:13px 15px;border-bottom:1px solid #f0f2f6;color:#3c4659}
+tbody tr:hover{background:#fafbfe}
+td.money{font-weight:700;color:#1c2a43;font-variant-numeric:tabular-nums}
+.rank{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:8px;background:#f0f3f8;font-weight:700;font-size:11px}
+.rank.gold{background:#fff3d9;color:#b17b16}
+.rank.silver{background:#edf0f5;color:#6c778b}
+.rank.bronze{background:#f8e9df;color:#a56b43}
+.pill{padding:5px 9px;border-radius:20px;background:#edf2ff;color:#3769df;font-size:10px;font-weight:700}
+.empty{text-align:center;padding:35px;color:var(--muted);font-size:12px}
+
+.rank-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.rank-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow)}
+.rank-card h3{font-family:Manrope,sans-serif;font-size:14px;margin:0 0 5px}
+.rank-card p{font-size:11px;color:var(--muted);margin:0 0 18px}
+.rank-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #f1f3f7}
+.rank-row:last-child{border-bottom:0}
+.rank-name{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis}
+.rank-meta{font-size:10px;color:var(--muted);margin-top:4px}
+.rank-revenue{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.bar-bg{height:5px;background:#f0f2f7;border-radius:10px;margin-top:7px;overflow:hidden}
+.bar-fill{height:100%;background:var(--blue);border-radius:10px}
+
+.segment{display:flex;gap:5px;background:#f4f6fa;padding:4px;border-radius:9px}
+.segment button{border:0;background:transparent;padding:8px 12px;border-radius:7px;font-size:11px;color:var(--muted);cursor:pointer}
+.segment button.active{background:#fff;color:var(--blue);font-weight:700;box-shadow:0 1px 4px #0000000a}
+
+.drill-controls{display:flex;gap:12px;align-items:end;margin-bottom:16px;flex-wrap:wrap}
+.drill-controls .field{min-width:220px}
+.drill-controls .field select{min-width:220px}
+
+.notice{padding:13px 15px;background:#fff8e9;border:1px solid #f6e5bd;border-radius:10px;font-size:11px;color:#8b6828;margin-bottom:18px;line-height:1.6}
+
+.loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;padding:20px 0}
+.loading-overlay{position:fixed;inset:0;z-index:9999;background:rgba(255,255,255,.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px}
+.loading-overlay .spinner{width:42px;height:42px;border-width:4px}
+.loading-title{font-family:Manrope,sans-serif;font-size:20px;font-weight:800;color:var(--ink)}
+.loading-message{font-size:13px;color:var(--muted);max-width:320px;line-height:1.6}
+.last-updated{font-size:11px;color:var(--muted);margin-top:7px}
+.last-updated strong{color:var(--ink);font-weight:700}
+
+.spinner{width:17px;height:17px;border:2px solid #e3e9f5;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:1100px){
+ .sidebar{width:205px}
+ .main{padding:25px 20px}
+ .metrics{grid-template-columns:repeat(2,1fr)}
+ .filter-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:760px){
+ .app{display:block}
+ .sidebar{width:100%;padding:14px;border-right:0;border-bottom:1px solid var(--line)}
+ .brand{margin-bottom:14px}
+ .sidebar nav{display:flex;overflow-x:auto;gap:5px}
+ .nav-label,.sidebar-bottom{display:none}
+ .nav-btn{width:auto;white-space:nowrap;padding:10px 12px}
+ .main{padding:22px 14px}
+ .topbar{align-items:flex-start}
+ h1{font-size:22px}
+ .top-actions{flex-direction:column;align-items:stretch}
+ .chart-grid,.rank-layout{grid-template-columns:1fr}
+ .filter-grid{grid-template-columns:1fr 1fr}
+ .metrics{gap:9px}
+ .metric{padding:14px}
+ .metric-value{font-size:20px}
+ .chart-wrap{height:230px}
+}
+@media(max-width:420px){
+ .filter-grid{grid-template-columns:1fr}
+ .metrics{grid-template-columns:1fr 1fr}
+ .topbar{flex-direction:column}
+ .top-actions{flex-direction:row}
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">↗</div>
+    <div class="brand-name">Revenue Intelligence<small>PERFORMANCE SUITE</small></div>
+  </div>
+
+  <div class="nav-label">WORKSPACE</div>
+  <nav>
+    <button class="nav-btn active" data-page="overview"><span class="nav-icon">▦</span>Overview</button>
+    <button class="nav-btn" data-page="leadership"><span class="nav-icon">♛</span>Leadership Rankings</button>
+    <button class="nav-btn" data-page="rep"><span class="nav-icon">♙</span>Rep Leaderboard</button>
+    <button class="nav-btn" data-page="data"><span class="nav-icon">▤</span>All Revenue Data</button>
+  </nav>
+
+  <div class="sidebar-bottom">
+    <span class="status-dot"></span>Google Sheets connection<br>
+    <span id="connectionText">Connecting to source...</span>
+  </div>
+</aside>
+
+<main class="main">
+
+<header class="topbar">
+  <div>
+    <div class="eyebrow">REVENUE PERFORMANCE / 2026</div>
+    <h1 id="pageTitle">Revenue Overview</h1>
+    <div class="subtitle" id="pageSubtitle">A consolidated view of revenue performance across teams.</div>
+    <div class="last-updated" id="lastUpdated">Last updated: <strong>Not yet loaded</strong></div>
+  </div>
+  <div class="top-actions">
+    <button class="btn" onclick="resetFilters()">↺ Reset filters</button>
+    <button class="btn primary" onclick="loadData()">⟳ Refresh data</button>
+  </div>
+</header>
+
+<div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite">
+  <span class="spinner"></span>
+  <div class="loading-title">Loading revenue data</div>
+  <div class="loading-message" id="loadingMessage">Connecting to Google Sheets and preparing your dashboard. Please wait…</div>
+</div>
+<div id="loading" class="loading" style="display:none"></div>
+<div id="error" class="notice" style="display:none"></div>
+
+<!-- OVERVIEW -->
+<section class="page active" id="overview">
+
+  <div class="filters">
+    <div class="filter-head">
+      <div class="filter-title">Explore revenue</div>
+      <span class="pill">Live filters</span>
+    </div>
+    <div class="filter-grid">
+      <div class="field"><label>SEARCH SCHOOL</label><input id="schoolSearch" placeholder="Enter school name..."></div>
+      <div class="field"><label>MONTH</label><select id="monthFilter"><option value="">All months</option></select></div>
+      <div class="field"><label>SM</label><select id="smFilter"><option value="">All SMs</option></select></div>
+      <div class="field"><label>MANAGER</label><select id="managerFilter"><option value="">All managers</option></select></div>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-top"><span class="metric-label">Total Revenue</span><span class="metric-icon">₹</span></div>
+      <div class="metric-value" id="totalRevenue">₹0</div>
+      <div class="metric-foot">Based on current filters</div>
+    </div>
+    <div class="metric">
+      <div class="metric-top"><span class="metric-label">Schools</span><span class="metric-icon">⌂</span></div>
+      <div class="metric-value" id="totalSchools">0</div>
+      <div class="metric-foot">Unique schools</div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">Revenue Trend</div><div class="panel-sub">Monthly revenue distribution</div></div></div>
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div><div class="panel-title">Revenue by SM</div><div class="panel-sub">Contribution by sales manager</div></div></div>
+      <div class="chart-wrap"><canvas id="smChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel table-panel">
+    <div class="panel-head"><div><div class="panel-title">Top Performing Reps</div><div class="panel-sub">Ranked by total revenue</div></div><button class="btn" onclick="showPage('rep')">View leaderboard →</button></div>
+    <div class="table-scroll"><table><thead><tr><th>RANK</th><th>REP</th><th>MANAGER</th><th>SM</th><th>SCHOOLS</th><th>REVENUE</th></tr></thead><tbody id="topReps"></tbody></table></div>
+  </div>
+</section>
+
+<!-- LEADERSHIP -->
+<section class="page" id="leadership">
+  <div class="filters">
+    <div class="filter-head"><div class="filter-title">Leadership analysis</div><span class="pill">Revenue rankings</span></div>
+    <div class="filter-grid">
+      <div class="field"><label>MONTH</label><select id="leadMonth"><option value="">All months</option></select></div>
+      <div class="field"><label>SM</label><select id="leadSM"><option value="">All SMs</option></select></div>
+      <div class="field"><label>MANAGER</label><select id="leadManager"><option value="">All managers</option></select></div>
+      <div class="field"><label>SEARCH NAME</label><input id="leadSearch" placeholder="Search SM or manager..."></div>
+    </div>
+  </div>
+
+  <div class="rank-layout">
+    <div class="rank-card">
+      <h3>SM Revenue Ranking</h3>
+      <p>All sales managers ranked by total revenue</p>
+      <div id="smRanking"></div>
+    </div>
+    <div class="rank-card">
+      <h3>Manager Revenue Ranking</h3>
+      <p>All managers ranked by total revenue</p>
+      <div id="managerRanking"></div>
+    </div>
+  </div>
+
+  <div class="panel table-panel">
+    <div class="panel-head"><div><div class="panel-title">SM → Manager → Rep Drilldown</div><div class="panel-sub">Select a leadership level to inspect the next level's revenue ranking.</div></div></div>
+
+    <div class="drill-controls">
+      <div class="field"><label>SELECT SM</label><select id="drillSM"><option value="">Choose an SM</option></select></div>
+      <div class="field"><label>SELECT MANAGER</label><select id="drillManager"><option value="">Choose a manager</option></select></div>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>RANK</th><th>NAME</th><th>ROLE</th><th>SCHOOLS</th><th>REVENUE</th><th>SHARE</th></tr></thead>
+        <tbody id="drillTable"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- REP LEADERBOARD -->
+<section class="page" id="rep">
+  <div class="filters">
+    <div class="filter-head"><div class="filter-title">Rep performance</div><span class="pill">Individual ranking</span></div>
+    <div class="filter-grid">
+      <div class="field"><label>MONTH</label><select id="repMonth"><option value="">All months</option></select></div>
+      <div class="field"><label>SM</label><select id="repSM"><option value="">All SMs</option></select></div>
+      <div class="field"><label>MANAGER</label><select id="repManager"><option value="">All managers</option></select></div>
+      <div class="field"><label>SEARCH REP</label><input id="repSearch" placeholder="Search representative..."></div>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Ranked Reps</div><div class="metric-value" id="repCount">0</div></div>
+    <div class="metric"><div class="metric-label">Top Rep</div><div class="metric-value" id="topRepName" style="font-size:18px">—</div></div>
+    <div class="metric"><div class="metric-label">Top Rep Revenue</div><div class="metric-value" id="topRepRevenue">₹0</div></div>
+    <div class="metric"><div class="metric-label">Total Revenue</div><div class="metric-value" id="repTotalRevenue">₹0</div></div>
+  </div>
+
+  <div class="panel table-panel">
+    <div class="panel-head"><div><div class="panel-title">Overall Rep Ranking</div><div class="panel-sub">Sorted by revenue, highest to lowest</div></div><button class="btn" onclick="exportTable('repTable','rep-revenue-ranking.csv')">↓ Export CSV</button></div>
+    <div class="table-scroll">
+      <table id="repTable">
+        <thead><tr><th>RANK</th><th>REP NAME</th><th>MANAGER</th><th>SM</th><th>SCHOOLS</th><th>REVENUE</th><th>CONTRIBUTION</th></tr></thead>
+        <tbody id="repRanking"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ALL DATA -->
+<section class="page" id="data">
+  <div class="filters">
+    <div class="filter-head"><div class="filter-title">Source data explorer</div><span class="pill">All source columns</span></div>
+    <div class="filter-grid">
+      <div class="field"><label>SEARCH SCHOOL</label><input id="dataSearch" placeholder="Search school name..."></div>
+      <div class="field"><label>MONTH</label><select id="dataMonth"><option value="">All months</option></select></div>
+      <div class="field"><label>SM</label><select id="dataSM"><option value="">All SMs</option></select></div>
+      <div class="field"><label>MANAGER</label><select id="dataManager"><option value="">All managers</option></select></div>
+    </div>
+  </div>
+  <div class="panel table-panel">
+    <div class="panel-head"><div><div class="panel-title">Total Revenue — Complete Dataset</div><div class="panel-sub" id="dataCount">0 records</div></div><button class="btn" onclick="exportTable('allDataTable','total-revenue.csv')">↓ Export CSV</button></div>
+    <div class="table-scroll">
+      <table id="allDataTable"><thead id="allDataHead"></thead><tbody id="allDataBody"></tbody></table>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+// ============================================================
+// SOURCE CONFIGURATION
+// ============================================================
+
+const SPREADSHEET_ID = "1eyhIcOEUSGVvF7CpmAJJq5cfi0GFLaasgLnjBgtRNaw";
+const SHEET_NAME = "Total revenue";
+
+// If automatic header detection is incorrect, set the exact
+// column names below. Leave as null for automatic detection.
+const COLUMN_MAP = {
+  school: null,
+  month: null,
+  sm: null,
+  manager: null,
+  rep: null,
+  revenue: null
+};
+
+let rawData = [];
+let headers = [];
+let column = {};
+let trendChart = null;
+let smChart = null;
+
+const $ = id => document.getElementById(id);
+
+const money = n => "₹" + Number(n || 0).toLocaleString("en-IN", {
+  maximumFractionDigits: 0
+});
+
+const number = n => Number(n || 0).toLocaleString("en-IN");
+
+function norm(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function findColumn(candidates) {
+  for (const candidate of candidates) {
+    const match = headers.find(h => norm(h) === norm(candidate));
+    if (match) return match;
+  }
+  return null;
+}
+
+function detectColumns() {
+  column.school = COLUMN_MAP.school || findColumn([
+    "School Name","School","SchoolName","Institution Name"
+  ]);
+
+  column.month = COLUMN_MAP.month || findColumn([
+    "Month","Revenue Month","Sales Month","Month Name"
+  ]);
+
+  column.sm = COLUMN_MAP.sm || findColumn([
+    "SM","SM Name","Sales Manager","Senior Manager",
+    "Regional Manager","SMName"
+  ]);
+
+  column.manager = COLUMN_MAP.manager || findColumn([
+    "Manager","Manager Name","Reporting Manager",
+    "Team Manager","ManagerName"
+  ]);
+
+  column.rep = COLUMN_MAP.rep || findColumn([
+    "Rep","Rep Name","Sales Rep","Sales Representative",
+    "Employee Name","Executive","Counsellor","Counselor",
+    "Owner Name","Agent Name","Employee"
+  ]);
+
+  column.revenue = COLUMN_MAP.revenue || findColumn([
+    "Total Revenue","Revenue","Net Revenue","Amount",
+    "Sales Amount","Total Amount","Collected Revenue",
+    "Realized Revenue"
+  ]);
+
+  // Last-resort revenue detection
+  if (!column.revenue) {
+    column.revenue = headers.find(h => /revenue|amount|sales/i.test(h));
+  }
+}
+
+function parseMoney(value) {
+  if (typeof value === "number") return value;
+  let s = String(value ?? "").trim();
+  if (!s || s === "-" || s.toLowerCase() === "na") return 0;
+
+  const negative = /^\(.*\)$/.test(s);
+  s = s.replace(/[₹,\s()]/g, "").replace(/[^\d.-]/g, "");
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? (negative ? -n : n) : 0;
+}
+
+function clean(value) {
+  return String(value ?? "").trim();
+}
+
+// ============================================================
+// LOAD GOOGLE SHEETS DATA
+// ============================================================
+
+async function loadData() {
+  const overlay = $("loadingOverlay");
+  const refreshButton = document.querySelector(".btn.primary");
+  overlay.style.display = "flex";
+  $("loadingMessage").textContent = "Connecting to Google Sheets and preparing your dashboard. Please wait…";
+  $("error").style.display = "none";
+  $("connectionText").textContent = "Connecting to source...";
+  if (refreshButton) {
+    refreshButton.disabled = true;
+    refreshButton.textContent = "⟳ Refreshing…";
+  }
+
+  const base = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq`;
+  const url = `${base}?sheet=${encodeURIComponent(SHEET_NAME)}&tqx=out:csv`;
+
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error("Google Sheets returned HTTP " + response.status);
+
+    const csv = await response.text();
+    if (csv.trim().startsWith("<")) {
+      throw new Error("The sheet is not publicly accessible. Set General access to Anyone with the link — Viewer.");
+    }
+
+    $("loadingMessage").textContent = "Processing rows and calculating revenue rankings…";
+    const parsed = Papa.parse(csv, {
+      header: true,
+      skipEmptyLines: "greedy",
+      transformHeader: h => h.trim()
+    });
+
+    if (parsed.errors.length && !parsed.data.length) {
+      throw new Error("Could not parse the sheet. Check the worksheet name and sharing settings.");
+    }
+
+    const nextHeaders = parsed.meta.fields || [];
+    const nextData = parsed.data.filter(row => Object.values(row).some(v => clean(v) !== ""));
+    if (!nextData.length) throw new Error("No data found in the Total revenue worksheet.");
+
+    const previousHeaders = headers;
+    headers = nextHeaders;
+    detectColumns();
+    if (!column.revenue) {
+      headers = previousHeaders;
+      throw new Error("Revenue column not detected. Set COLUMN_MAP.revenue to the exact header name.");
+    }
+
+    rawData = nextData;
+    $("connectionText").textContent = `${number(rawData.length)} records loaded`;
+    setupFilters();
+    renderAll();
+
+    const completedAt = new Date();
+    $("lastUpdated").innerHTML = `Last updated: <strong>${completedAt.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })} at ${completedAt.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:true })}</strong>`;
+    overlay.style.display = "none";
+  } catch (err) {
+    $("error").style.display = "block";
+    $("error").innerHTML = `<strong>Unable to load data:</strong> ${escapeHtml(err.message)}<br><br>Check that the spreadsheet is shared as Anyone with the link — Viewer, and that the worksheet is named exactly <strong>${escapeHtml(SHEET_NAME)}</strong>.`;
+    $("connectionText").textContent = "Connection failed";
+    $("loadingMessage").textContent = "The data could not be loaded. Please try refreshing again.";
+    overlay.style.display = "none";
+    console.error(err);
+  } finally {
+    if (refreshButton) {
+      refreshButton.disabled = false;
+      refreshButton.textContent = "⟳ Refresh data";
+    }
+  }
+}
+
+// ============================================================
+// FILTERS
+// ============================================================
+
+function uniqueValues(rows, key) {
+  if (!key) return [];
+  return [...new Set(rows.map(r => clean(r[key])).filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
+}
+
+function fillSelect(id, values, label) {
+  const el = $(id);
+  const previous = el.value;
+  el.innerHTML = `<option value="">${label}</option>` +
+    values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+  if (values.includes(previous)) el.value = previous;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function setupFilters() {
+  const months = uniqueValues(rawData, column.month);
+  const sms = uniqueValues(rawData, column.sm);
+  const managers = uniqueValues(rawData, column.manager);
+
+  ["monthFilter","leadMonth","repMonth","dataMonth"].forEach(id => fillSelect(id, months, "All months"));
+  ["smFilter","leadSM","repSM","dataSM","drillSM"].forEach(id => fillSelect(id, sms, id === "drillSM" ? "Choose an SM" : "All SMs"));
+  ["managerFilter","leadManager","repManager","dataManager","drillManager"].forEach(id => fillSelect(id, managers, id === "drillManager" ? "Choose a manager" : "All managers"));
+}
+
+function applyFilters(rows, ids = {}) {
+  const month = ids.month ? $(ids.month).value : "";
+  const sm = ids.sm ? $(ids.sm).value : "";
+  const manager = ids.manager ? $(ids.manager).value : "";
+  const search = ids.search ? $(ids.search).value.trim().toLowerCase() : "";
+
+  return rows.filter(r => {
+    if (month && clean(r[column.month]) !== month) return false;
+    if (sm && clean(r[column.sm]) !== sm) return false;
+    if (manager && clean(r[column.manager]) !== manager) return false;
+    if (search) {
+      const fields = [column.school,column.rep,column.manager,column.sm]
+        .filter(Boolean).map(k => clean(r[k]).toLowerCase());
+      if (!fields.some(v => v.includes(search))) return false;
+    }
+    return true;
+  });
+}
+
+function overviewRows() {
+  return applyFilters(rawData, {
+    month:"monthFilter", sm:"smFilter",
+    manager:"managerFilter", search:"schoolSearch"
+  });
+}
+
+function leadershipRows() {
+  return applyFilters(rawData, {
+    month:"leadMonth", sm:"leadSM",
+    manager:"leadManager", search:"leadSearch"
+  });
+}
+
+function repRows() {
+  return applyFilters(rawData, {
+    month:"repMonth", sm:"repSM",
+    manager:"repManager", search:"repSearch"
+  });
+}
+
+function dataRows() {
+  return applyFilters(rawData, {
+    month:"dataMonth", sm:"dataSM",
+    manager:"dataManager", search:"dataSearch"
+  });
+}
+
+function resetFilters() {
+  document.querySelectorAll("select").forEach(el => el.value = "");
+  document.querySelectorAll('input[type="text"], input:not([type])').forEach(el => el.value = "");
+  renderAll();
+}
+
+// ============================================================
+// AGGREGATION AND RANKING
+// ============================================================
+
+function aggregate(rows, key) {
+  if (!key) return [];
+
+  const map = new Map();
+
+  rows.forEach(r => {
+    const name = clean(r[key]) || "Unassigned";
+    if (!map.has(name)) map.set(name, {name, revenue:0, schools:new Set(), rows:0});
+    const item = map.get(name);
+    item.revenue += parseMoney(r[column.revenue]);
+    item.rows++;
+
+    if (column.school && clean(r[column.school])) {
+      item.schools.add(clean(r[column.school]));
+    }
+  });
+
+  return [...map.values()]
+    .map(x => ({...x, schools:x.schools.size}))
+    .sort((a,b) => b.revenue - a.revenue);
+}
+
+function rankClass(i) {
+  return i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+}
+
+function rankRows(items, total) {
+  if (!items.length) return '<div class="empty">No data available for this selection.</div>';
+
+  const max = Math.max(...items.map(x => x.revenue), 1);
+
+  return items.map((x,i) => `
+    <div class="rank-row">
+      <span class="rank ${rankClass(i)}">${i+1}</span>
+      <div style="min-width:0">
+        <div class="rank-name" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</div>
+        <div class="rank-meta">${number(x.schools)} schools · ${number(x.rows)} records</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.max(0,x.revenue/max*100)}%"></div></div>
+      </div>
+      <div class="rank-revenue">${money(x.revenue)}</div>
+    </div>
+  `).join("");
+}
+
+function uniqueCount(rows,key) {
+  if (!key) return 0;
+  return new Set(rows.map(r => clean(r[key])).filter(Boolean)).size;
+}
+
+// ============================================================
+// OVERVIEW
+// ============================================================
+
+function renderOverview() {
+  const rows = overviewRows();
+  const total = rows.reduce((s,r) => s + parseMoney(r[column.revenue]), 0);
+  const schools = uniqueCount(rows,column.school);
+
+  $("totalRevenue").textContent = money(total);
+  $("totalSchools").textContent = number(schools);
+
+  const top = aggregate(rows,column.rep).slice(0,8);
+  $("topReps").innerHTML = top.length ? top.map((x,i) => {
+    const repRows = rows.filter(r => clean(r[column.rep]) === x.name);
+    const manager = column.manager ? clean(repRows[0]?.[column.manager]) : "—";
+    const sm = column.sm ? clean(repRows[0]?.[column.sm]) : "—";
+    return `<tr>
+      <td><span class="rank ${rankClass(i)}">${i+1}</span></td>
+      <td><strong>${escapeHtml(x.name)}</strong></td>
+      <td>${escapeHtml(manager || "—")}</td>
+      <td>${escapeHtml(sm || "—")}</td>
+      <td>${number(x.schools)}</td>
+      <td class="money">${money(x.revenue)}</td>
+    </tr>`;
+  }).join("") : '<tr><td colspan="6" class="empty">No records found.</td></tr>';
+
+  renderCharts(rows);
+}
+
+function renderCharts(rows) {
+  const monthData = aggregate(rows,column.month).reverse();
+  const smData = aggregate(rows,column.sm).slice(0,7);
+
+  if (trendChart) trendChart.destroy();
+  if (smChart) smChart.destroy();
+
+  trendChart = new Chart($("trendChart"),{
+    type:"line",
+    data:{
+      labels:monthData.map(x=>x.name),
+      datasets:[{
+        label:"Revenue",
+        data:monthData.map(x=>x.revenue),
+        borderColor:"#3769df",
+        backgroundColor:"rgba(55,105,223,.10)",
+        fill:true,tension:.35,pointRadius:4,pointBackgroundColor:"#3769df"
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        y:{beginAtZero:true,grid:{color:"#f0f2f7"},ticks:{callback:v=>shortMoney(v)}},
+        x:{grid:{display:false}}
+      }
+    }
+  });
+
+  smChart = new Chart($("smChart"),{
+    type:"bar",
+    data:{
+      labels:smData.map(x=>x.name),
+      datasets:[{
+        label:"Revenue",
+        data:smData.map(x=>x.revenue),
+        backgroundColor:"#7c9af0",
+        borderRadius:6,
+        maxBarThickness:35
+      }]
+    },
+    options:{
+      indexAxis:"y",responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:"#f0f2f7"},ticks:{callback:v=>shortMoney(v)}},
+        y:{grid:{display:false}}
+      }
+    }
+  });
+}
+
+function shortMoney(n) {
+  if (Math.abs(n)>=10000000) return "₹"+(n/10000000).toFixed(1)+"Cr";
+  if (Math.abs(n)>=100000) return "₹"+(n/100000).toFixed(1)+"L";
+  if (Math.abs(n)>=1000) return "₹"+(n/1000).toFixed(0)+"K";
+  return "₹"+n;
+}
+
+// ============================================================
+// LEADERSHIP RANKINGS AND DRILLDOWN
+// ============================================================
+
+function renderLeadership() {
+  const rows = leadershipRows();
+
+  const sms = aggregate(rows,column.sm);
+  const managers = aggregate(rows,column.manager);
+
+  $("smRanking").innerHTML = rankRows(sms, rows.reduce((s,r)=>s+parseMoney(r[column.revenue]),0));
+  $("managerRanking").innerHTML = rankRows(managers, rows.reduce((s,r)=>s+parseMoney(r[column.revenue]),0));
+
+  renderDrilldown();
+}
+
+function renderDrilldown() {
+  const selectedSM = $("drillSM").value;
+  const selectedManager = $("drillManager").value;
+
+  let rows = leadershipRows();
+
+  if (selectedSM && column.sm) {
+    rows = rows.filter(r => clean(r[column.sm]) === selectedSM);
+  }
+
+  if (selectedManager && column.manager) {
+    rows = rows.filter(r => clean(r[column.manager]) === selectedManager);
+  }
+
+  let items = [];
+  let role = "";
+
+  if (selectedManager && column.rep) {
+    items = aggregate(rows,column.rep);
+    role = "Representative";
+  } else if (selectedSM && column.manager) {
+    items = aggregate(rows,column.manager);
+    role = "Manager";
+  } else if (column.sm) {
+    items = aggregate(rows,column.sm);
+    role = "SM";
+  }
+
+  const total = rows.reduce((s,r)=>s+parseMoney(r[column.revenue]),0);
+
+  $("drillTable").innerHTML = items.length ? items.map((x,i)=>`
+    <tr>
+      <td><span class="rank ${rankClass(i)}">${i+1}</span></td>
+      <td><strong>${escapeHtml(x.name)}</strong></td>
+      <td><span class="pill">${role}</span></td>
+      <td>${number(x.schools)}</td>
+      <td class="money">${money(x.revenue)}</td>
+      <td>${total ? (x.revenue/total*100).toFixed(1)+"%" : "0%"}</td>
+    </tr>
+  `).join("") : '<tr><td colspan="6" class="empty">Select an SM or manager to see the breakdown.</td></tr>';
+}
+
+// ============================================================
+// REP LEADERBOARD
+// ============================================================
+
+function renderRep() {
+  const rows = repRows();
+  const items = aggregate(rows,column.rep);
+  const total = rows.reduce((s,r)=>s+parseMoney(r[column.revenue]),0);
+
+  $("repCount").textContent = number(items.length);
+  $("topRepName").textContent = items[0]?.name || "—";
+  $("topRepRevenue").textContent = money(items[0]?.revenue || 0);
+  $("repTotalRevenue").textContent = money(total);
+
+  $("repRanking").innerHTML = items.length ? items.map((x,i)=>{
+    const sample = rows.find(r=>clean(r[column.rep])===x.name);
+    return `<tr>
+      <td><span class="rank ${rankClass(i)}">${i+1}</span></td>
+      <td><strong>${escapeHtml(x.name)}</strong></td>
+      <td>${escapeHtml(column.manager ? clean(sample?.[column.manager]) : "—")}</td>
+      <td>${escapeHtml(column.sm ? clean(sample?.[column.sm]) : "—")}</td>
+      <td>${number(x.schools)}</td>
+      <td class="money">${money(x.revenue)}</td>
+      <td>${total ? (x.revenue/total*100).toFixed(1)+"%" : "0%"}</td>
+    </tr>`;
+  }).join("") : '<tr><td colspan="7" class="empty">No reps found.</td></tr>';
+}
+
+// ============================================================
+// ALL SOURCE DATA
+// ============================================================
+
+function renderData() {
+  const rows = dataRows();
+  $("dataCount").textContent = `${number(rows.length)} records`;
+
+  $("allDataHead").innerHTML = `<tr>${headers.map(h=>`<th>${escapeHtml(h)}</th>`).join("")}</tr>`;
+
+  $("allDataBody").innerHTML = rows.length ? rows.map(r=>`
+    <tr>${headers.map(h=>{
+      const isRevenue = h === column.revenue;
+      return `<td class="${isRevenue?'money':''}">${escapeHtml(isRevenue ? money(parseMoney(r[h])) : clean(r[h]))}</td>`;
+    }).join("")}</tr>
+  `).join("") : `<tr><td colspan="${headers.length}" class="empty">No matching records.</td></tr>`;
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+
+function exportTable(tableId,filename) {
+  const table = $(tableId);
+  const rows = [...table.querySelectorAll("tr")].map(tr=>
+    [...tr.querySelectorAll("th,td")].map(td=>td.innerText.trim())
+  );
+  const csv = rows.map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// NAVIGATION AND RENDER
+// ============================================================
+
+const pageInfo = {
+  overview:["Revenue Overview","A consolidated view of revenue performance across teams."],
+  leadership:["Leadership Rankings","Understand revenue contribution across SMs and managers."],
+  rep:["Rep Leaderboard","Individual revenue rankings across the organization."],
+  data:["All Revenue Data","Explore every column from the original Total revenue worksheet."]
+};
+
+function showPage(page) {
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  $(page).classList.add("active");
+
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
+
+  $("pageTitle").textContent = pageInfo[page][0];
+  $("pageSubtitle").textContent = pageInfo[page][1];
+  renderAll();
+}
+
+function renderAll() {
+  renderOverview();
+  renderLeadership();
+  renderRep();
+  renderData();
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+
+document.querySelectorAll(".nav-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>showPage(btn.dataset.page));
+});
+
+[
+  "schoolSearch","monthFilter","smFilter","managerFilter",
+  "leadMonth","leadSM","leadManager","leadSearch",
+  "repMonth","repSM","repManager","repSearch",
+  "dataSearch","dataMonth","dataSM","dataManager"
+].forEach(id=>{
+  $(id).addEventListener("input",renderAll);
+  $(id).addEventListener("change",renderAll);
+});
+
+$("drillSM").addEventListener("change",()=>{
+  const sm = $("drillSM").value;
+  const rows = sm && column.sm
+    ? rawData.filter(r=>clean(r[column.sm])===sm)
+    : rawData;
+  fillSelect("drillManager",uniqueValues(rows,column.manager),"Choose a manager");
+  renderDrilldown();
+});
+
+$("drillManager").addEventListener("change",renderDrilldown);
+
+// Start
+loadData();
+</script>
+</body>
+</html>
